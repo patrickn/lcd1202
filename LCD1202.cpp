@@ -1,5 +1,5 @@
 
-#include "lcd1202.h"
+#include "LCD1202.h"
 
 #define BCM2708_PERI_BASE  0x20000000
 #define GPIO_BASE          (BCM2708_PERI_BASE + 0x200000) // GPIO controller
@@ -12,7 +12,7 @@ enum spi_regs {SPI_CS, SPI_FIFO, SPI_CLK, SPI_DLEN, SPI_LTOH, SPI_DC};
 
 
 
-lcd1202::lcd1202()
+LCD1202::LCD1202()
 {
    spi = get_mmap_ptr(SPI_BASE, BLOCK_SIZE);
 
@@ -29,11 +29,11 @@ lcd1202::lcd1202()
    init_lcd();
 }
 
-lcd1202::~lcd1202()
+LCD1202::~LCD1202()
 {
 }
 
-volatile unsigned* lcd1202::get_mmap_ptr(unsigned pos, unsigned len)
+volatile unsigned* LCD1202::get_mmap_ptr(unsigned pos, unsigned len)
 {
    int mem_fd;
    void* ptr;
@@ -77,7 +77,7 @@ volatile unsigned* lcd1202::get_mmap_ptr(unsigned pos, unsigned len)
    return (volatile unsigned *)ptr;
 }
 
-void lcd1202::init_lcd()
+void LCD1202::init_lcd()
 {
    spi[SPI_CS] |= 0x80;
    spi[SPI_FIFO] = 0xe2;   // Reset
@@ -94,12 +94,11 @@ void lcd1202::init_lcd()
    spi[SPI_CS] &= ~0x80;
 }
 
-void lcd1202::lcd_write_byte(unsigned data, bool cmd)
+void LCD1202::lcd_write_byte(unsigned data, bool cmd)
 {
    spi[SPI_CS] |= 0x80;
-//   usleep(10);
    unsigned int d = data;
-   if (cmd) {
+   if (!cmd) {
       d |= 0x100;
    }
    spi[SPI_FIFO] = d;
@@ -107,18 +106,25 @@ void lcd1202::lcd_write_byte(unsigned data, bool cmd)
 //   spi[SPI_CS] &= ~0x80;
 }
 
-void lcd1202::all_points_on()
+void LCD1202::all_points_on()
 {
-   // Write data
-//spi[SPI_CS] |= 0x80;
-   lcd_write_byte(0xa5, 0);   // All points on
-
-
-//spi[SPI_CS] &= ~0x80;
+   lcd_write_byte(0xa5, 1);   // All points on
 }
 
-void lcd1202::all_points_off()
+void LCD1202::all_points_off()
 {
-   //spi[SPI_CS] |= 0x80;
-   lcd_write_byte(0xa4, 0);   // All points off
+   lcd_write_byte(0xa4, 1);   // All points off
+}
+
+void LCD1202::print_A()
+{
+   /* Print 'A' character */
+   lcd_write_byte(0x00);
+   lcd_write_byte(0x7c);
+   lcd_write_byte(0x12);
+   lcd_write_byte(0x12);
+   lcd_write_byte(0x7c);
+   lcd_write_byte(0x00);
+   usleep(1);
+   spi[SPI_FIFO] = 0xaf;   // LCD on
 }
