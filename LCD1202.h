@@ -21,15 +21,12 @@ public:
 
    void all_points_on();
    void all_points_off();
-   void write_text(int, int, const char*);
    void goto_xy(int, int);
    void clear_screen();
-
-   // Buffered writes
-   void print(int, int, const char*);
+   void display_info();
 
    // Direct writes
-   void print_direct(int, int, const char*);
+   void write(int, int, const char*);
 
 private:
    void init_lcd();
@@ -37,13 +34,9 @@ private:
    void lcd_write_byte(unsigned, bool);
    void lcd_write_cmd(unsigned val) {lcd_write_byte(val, true);};
    void lcd_write_data(unsigned val){lcd_write_byte(val, false);};
-   void update_screen(void);
-   void clear_frame(void);
 
    // I/O access
    volatile unsigned* spi;
-
-   unsigned char frame_buffer[LCD_MAX_ROWS][LCD_MAX_X];
 };
 
 

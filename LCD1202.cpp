@@ -1,17 +1,21 @@
 
 #include "LCD1202.h"
+#include "version.h"
 #include "font.h"
 
 
+// Todo: Use static const here
 #define BCM2708_PERI_BASE  0x20000000
 #define GPIO_BASE          (BCM2708_PERI_BASE + 0x200000) // GPIO controller
 #define SPI_BASE           (GPIO_BASE + 0x4000)           // SPI controller
 #define PAGE_SIZE          (4 * 1024)
 #define BLOCK_SIZE         (4 * 1024)
 
+static const char* info1 = "RPi ~ LCD1202";
+static const char* info2 = version;
+static const char* info3 = "by @neavey";
 
 enum spi_regs {SPI_CS, SPI_FIFO, SPI_CLK, SPI_DLEN, SPI_LTOH, SPI_DC};
-
 
 
 LCD1202::LCD1202()
@@ -42,7 +46,8 @@ volatile unsigned* LCD1202::get_mmap_ptr(unsigned pos, unsigned len)
    // open /dev/mem
    if ((mem_fd = open("/dev/mem", O_RDWR|O_SYNC) ) < 0) {
       printf("can't open /dev/mem \n");
-      exit (-1);
+      // Todo: Throw an exception
+      exit(-1);
    }
 
    // mmap GPIO
@@ -50,7 +55,8 @@ volatile unsigned* LCD1202::get_mmap_ptr(unsigned pos, unsigned len)
    // Allocate MAP block
    if ((ptr = malloc(len + (PAGE_SIZE-1))) == NULL) {
       printf("allocation error \n");
-      exit (-1);
+      // Todo: Throw an exception
+      exit(-1);
    }
 
    // Make sure pointer is on 4K boundary
@@ -70,7 +76,8 @@ volatile unsigned* LCD1202::get_mmap_ptr(unsigned pos, unsigned len)
 
    if ((long)ptr < 0) {
       printf("mmap error %ld\n", (long)ptr);
-      exit (-1);
+      // Todo: Throw an exception
+      exit(-1);
    }
 
    close (mem_fd);
@@ -81,11 +88,21 @@ volatile unsigned* LCD1202::get_mmap_ptr(unsigned pos, unsigned len)
 void LCD1202::init_lcd()
 {
    lcd_write_cmd(0xe2);   // Reset
+   usleep(10);
    lcd_write_cmd(0xa4);   // Power saver off
    lcd_write_cmd(0x2f);   // Power control set
 
-   //lcd_write_cmd(0xb0);   // Page address set
-   //lcd_write_cmd(0xaf);   // LCD on
+   lcd_write_cmd(0xa6);   // Display normal
+   display_info();
+}
+
+void LCD1202::display_info()
+{
+   clear_screen();
+   write(0, 0, info1);
+   write(1, 0, info2);
+   write(2, 0, info3);
+   lcd_write_cmd(0xaf);
 }
 
 void LCD1202::lcd_write_byte(unsigned data, bool cmd)
@@ -111,68 +128,6 @@ void LCD1202::all_points_off()
    lcd_write_cmd(0xa4);   // All points off
 }
 
-// void LCD1202::print_A()
-// {
-//    clear_screen();
-// //    goto_rc(8, 0);
-// //
-// //    for (int i = 0; i < 2; i++) {
-// //       // Print 'A' character
-// //       lcd_write_data(0x00);
-// //       lcd_write_data(0x7c);
-// //       lcd_write_data(0x12);
-// //       lcd_write_data(0x12);
-// //       lcd_write_data(0x7c);
-// //       lcd_write_data(0x00);
-// //    }
-// //
-// //    write_text(1, 2, "=");
-//
-//    write_text(15, 23, "000");
-//
-//
-//    goto_xy(2, 3);
-//
-//    for (int i = 0; i < 3; i++) {
-//       // Print 'A' character
-//       lcd_write_data(0x00);
-//       lcd_write_data(0x7c);
-//       lcd_write_data(0x12);
-//       lcd_write_data(0x12);
-//       lcd_write_data(0x7c);
-//       lcd_write_data(0x00);
-//    }
-//
-// //   update_screen();
-//    lcd_write_cmd(0xaf);
-// }
-
-void LCD1202::write_text(int x, int y, const char* str)
-{
-   int row = y >> 3;
-
-   for ( ; *str; str++) {
-      int d = (*str - ' ') * 5;
-
-      for (int i = 0; i < 5; i++, d++) {
-         frame_buffer[row][x++] = font_data[d];
-      }
-
-      frame_buffer[row][x++] = 0;
-   }
-}
-
-void LCD1202::update_screen(void)
-{
-   goto_xy(0, 0);
-
-   for (unsigned char r = 0; r < LCD_MAX_ROWS; r++) {
-      for (unsigned char c = 0; c < LCD_MAX_X; c++) {
-         lcd_write_data(frame_buffer[r][c]);
-      }
-   }
-}
-
 void LCD1202::goto_xy(int x, int y)
 {
    lcd_write_cmd(0xb0 | (x & 0x0f)); // Set page address to 'x'
@@ -188,34 +143,19 @@ void LCD1202::clear_screen()
       // fill DDRAM with Zeros
       lcd_write_data(0x00);
    }
-}
-
-void LCD1202::clear_frame(void)
-{
-   memset(frame_buffer, 0, sizeof(frame_buffer));
-}
-
-void LCD1202::print_direct(int x, int y, const char*)
-{
-   goto_xy(x, y);
-
-   for (int i = 0; i < 3; i++) {
-      // Print 'A' character
-      lcd_write_data(0x00);
-      lcd_write_data(0x7c);
-      lcd_write_data(0x12);
-      lcd_write_data(0x12);
-      lcd_write_data(0x7c);
-      lcd_write_data(0x00);
-   }
-
    lcd_write_cmd(0xaf);
 }
 
-void LCD1202::print(int x, int y, const char* str)
+void LCD1202::write(int x, int y, const char* str)
 {
-   clear_frame();
-   write_text(x, y, str);
-   update_screen();
+   goto_xy(x, y);
+
+   for ( ; *str; str++) {
+      int d = (*str - ' ') * 5;
+
+      for (int i = 0; i < 5; i++, d++) {
+         lcd_write_data(font_data[d]);
+      }
+   }
    lcd_write_cmd(0xaf);
 }
