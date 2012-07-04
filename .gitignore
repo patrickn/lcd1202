@@ -1,2 +1,3 @@
 lcd1202
 *.o
+version.h

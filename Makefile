@@ -1,9 +1,13 @@
 
-CPPUNIT_PATH=/usr
-CPPFLAGS=-Wall -lstdc++
+CPPUNIT_PATH = /usr
+CPPFLAGS     = -Wall -lstdc++
+
+# Grab the version number from the latest tag
+GIT     = /usr/bin/git
+VERSION = $(shell ${GIT} describe --abbrev=4 HEAD)
 
 
-all: lcd1202
+all: version lcd1202
 unittest: lcd1202test
 
 main.o: main.cpp
@@ -25,5 +29,8 @@ LCD1202Test.o: LCD1202Test.cpp LCD1202Test.h
 lcd1202test: test.o LCD1202Test.o LCD1202.o
 	g++ -Wall -o lcd1202test test.o LCD1202Test.o LCD1202.o -L${CPPUNIT_PATH}/lib -lcppunit -ldl
 
+version:
+	@echo "const char* version = \""$(VERSION)"\";" > version.h
+
 clean:
-	rm -f *.o lcd1202 lcd1202test
+	rm -f *.o version.h lcd1202 lcd1202test
