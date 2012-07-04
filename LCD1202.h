@@ -21,12 +21,19 @@ public:
 
    void all_points_on();
    void all_points_off();
-   void goto_xy(int, int);
+   void goto_xy(unsigned, unsigned);
+   void goto_rc(unsigned, unsigned);
    void clear_screen();
    void display_info();
 
    // Direct writes
-   void write(int, int, const char*);
+   void write(unsigned, unsigned, const char*);
+   void point_on(unsigned, unsigned);
+   void point_off(unsigned, unsigned);
+   void draw_line(int, int, int, int);
+   void update_screen();
+
+   void set_pixel(unsigned, unsigned);
 
 private:
    void init_lcd();

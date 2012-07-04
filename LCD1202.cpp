@@ -22,7 +22,7 @@ LCD1202::LCD1202()
 {
    spi = get_mmap_ptr(SPI_BASE, BLOCK_SIZE);
 
-   // SPI Initialisation
+   // Pi SPI Initialisation
    spi[SPI_CS] = 0x30 | 0x10000; // Clear FIFOs and all status bits
    spi[SPI_CS] = 0x10000;        // Make sure done bit is cleared
 
@@ -92,8 +92,9 @@ void LCD1202::init_lcd()
    lcd_write_cmd(0xa4);   // Power saver off
    lcd_write_cmd(0x2f);   // Power control set
 
-   lcd_write_cmd(0xa6);   // Display normal
+   //lcd_write_cmd(0xa6);   // Display normal
    display_info();
+   sleep(1);
 }
 
 void LCD1202::display_info()
@@ -128,16 +129,23 @@ void LCD1202::all_points_off()
    lcd_write_cmd(0xa4);   // All points off
 }
 
-void LCD1202::goto_xy(int x, int y)
+void LCD1202::goto_xy(unsigned x, unsigned y)
 {
-   lcd_write_cmd(0xb0 | (x & 0x0f)); // Set page address to 'x'
-   lcd_write_cmd(0x10 | (y >> 4));   // Sets DDRAM column address - upper 3 bits
-   lcd_write_cmd(0x00 | (y & 0x0f)); // lower 4 bits
+   lcd_write_cmd(0xb0 | ((y) & 0x0f)); // Set page address to 'y'
+   lcd_write_cmd(0x10 | (x >> 4));   // Sets DDRAM column address - upper 3 bits
+   lcd_write_cmd(0x00 | (x & 0x0f)); // lower 4 bits
+}
+
+void LCD1202::goto_rc(unsigned r, unsigned c)
+{
+   lcd_write_cmd(0xb0 | (r & 0x0f)); // Set page address to 'r'
+   lcd_write_cmd(0x10 | (c >> 4));   // Sets DDRAM column address - upper 3 bits
+   lcd_write_cmd(0x00 | (c & 0x0f)); // lower 4 bits
 }
 
 void LCD1202::clear_screen()
 {
-   goto_xy(0, 0);
+   goto_rc(0, 0);
 
    for (int i = 0; i < 16 * 6 * 9; i++) {
       // fill DDRAM with Zeros
@@ -146,9 +154,9 @@ void LCD1202::clear_screen()
    lcd_write_cmd(0xaf);
 }
 
-void LCD1202::write(int x, int y, const char* str)
+void LCD1202::write(unsigned r, unsigned c, const char* str)
 {
-   goto_xy(x, y);
+   goto_rc(r, c);
 
    for ( ; *str; str++) {
       int d = (*str - ' ') * 5;
@@ -157,5 +165,126 @@ void LCD1202::write(int x, int y, const char* str)
          lcd_write_data(font_data[d]);
       }
    }
+//   lcd_write_cmd(0xaf);
+}
+
+void LCD1202::point_on(unsigned x, unsigned y)
+{
+   goto_xy(x, y);
+   lcd_write_data(0x01);
+//   lcd_write_cmd(0xaf);
+}
+
+void LCD1202::point_off(unsigned x, unsigned y)
+{
+   goto_xy(x, y);
+   lcd_write_data(0xff);
+//   lcd_write_cmd(0xaf);
+}
+
+void LCD1202::set_pixel(unsigned, unsigned)
+{
+
+}
+
+void LCD1202::update_screen()
+{
    lcd_write_cmd(0xaf);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// draw_line
+// Draw a line between any two absolute co-ords
+//
+void LCD1202::draw_line(int x1, int y1, int x2, int y2)
+{
+   // Bresenham's line drawing algorithm. Originally coded on the IBM PC
+   // with EGA card in 1986.
+   int x, y, d, dx, dy, i1, i2;
+   int xend, yend, xinc, yinc;
+
+   dx = abs(x2 - x1);
+   dy = abs(y2 - y1);
+
+   if (((y1 > y2) && (dx < dy)) || ((x1 > x2) && (dx > dy))) {
+      int temp = y1;
+      y1 = y2;
+      y2 = temp;
+
+      temp = x1;
+      x1 = x2;
+      x2 = temp;
+   }
+
+   if (dy > dx) {
+      d = (2 * dx) - dy;     /* Slope > 1 */
+      i1 = 2 * dx;
+      i2 = 2 * (dx - dy);
+
+      if (y1 > y2) {
+         x = x2;
+         y = y2;
+         yend = y1;
+      }
+      else
+      {
+         x = x1;
+         y = y1;
+         yend = y2;
+      }
+
+      if (x1 > x2)
+         xinc = -1;
+      else
+         xinc = 1;
+
+      point_on(x, y);
+
+      while (y < yend) {
+         y++;
+         if (d < 0)
+            d += i1;
+         else {
+            x += xinc;
+            d += i2;
+      }
+
+      point_on(x, y);
+      }
+   }
+   else {
+      d = (2 * dy) - dx;  /* Slope < 1 */
+      i1 = 2 * dy;
+      i2 = 2 * (dy - dx);
+
+      if (x1 > x2) {
+         x = x2;
+         y = y2;
+         xend = x1;
+      }
+      else {
+         x = x1;
+         y = y1;
+         xend = x2;
+      }
+
+      if (y1 > y2)
+         yinc = -1;
+      else
+         yinc = 1;
+
+      point_on(x, y);
+
+      while (x < xend) {
+         x++;
+         if (d < 0)
+            d += i1;
+         else {
+            y += yinc;
+            d += i2;
+      }
+
+      point_on(x, y);
+      }
+   }
 }
