@@ -31,7 +31,7 @@ LCD1202::LCD1202()
    spi[SPI_CS] |= 0x2000;        // Enable LoSSI
    //spi[SPI_CS] |= 0x04;          // First SCLK transition at beginning of data bit.
 
-   init_lcd();
+   init();
 }
 
 LCD1202::~LCD1202()
@@ -85,14 +85,14 @@ volatile unsigned* LCD1202::get_mmap_ptr(unsigned pos, unsigned len)
    return (volatile unsigned *)ptr;
 }
 
-void LCD1202::init_lcd()
+void LCD1202::init()
 {
-   lcd_write_cmd(0xe2);   // Reset
+   write_cmd(0xe2);   // Reset
    usleep(10);
-   lcd_write_cmd(0xa4);   // Power saver off
-   lcd_write_cmd(0x2f);   // Power control set
+   write_cmd(0xa4);   // Power saver off
+   write_cmd(0x2f);   // Power control set
 
-   //lcd_write_cmd(0xa6);   // Display normal
+   //write_cmd(0xa6);   // Display normal
    display_info();
    sleep(1);
 }
@@ -100,13 +100,13 @@ void LCD1202::init_lcd()
 void LCD1202::display_info()
 {
    clear_screen();
-   write(0, 0, info1);
-   write(1, 0, info2);
-   write(2, 0, info3);
-   lcd_write_cmd(0xaf);
+   write(0 , 0, info1);
+   write(16, 0, info2);
+   write(32, 0, info3);
+   update_screen();
 }
 
-void LCD1202::lcd_write_byte(unsigned data, bool cmd)
+void LCD1202::write_byte(unsigned data, bool cmd)
 {
    // Make sure the Tx buffer is empty
    while (0 == (spi[SPI_CS] & 0x40000));
@@ -121,93 +121,88 @@ void LCD1202::lcd_write_byte(unsigned data, bool cmd)
 
 void LCD1202::all_points_on()
 {
-   lcd_write_cmd(0xa5);   // All points on
+   write_cmd(0xa5);   // All points on
 }
 
 void LCD1202::all_points_off()
 {
-   lcd_write_cmd(0xa4);   // All points off
-}
-
-void LCD1202::goto_xy(unsigned x, unsigned y)
-{
-   lcd_write_cmd(0xb0 | ((y) & 0x0f)); // Set page address to 'y'
-   lcd_write_cmd(0x10 | (x >> 4));   // Sets DDRAM column address - upper 3 bits
-   lcd_write_cmd(0x00 | (x & 0x0f)); // lower 4 bits
-}
-
-void LCD1202::goto_rc(unsigned r, unsigned c)
-{
-   lcd_write_cmd(0xb0 | (r & 0x0f)); // Set page address to 'r'
-   lcd_write_cmd(0x10 | (c >> 4));   // Sets DDRAM column address - upper 3 bits
-   lcd_write_cmd(0x00 | (c & 0x0f)); // lower 4 bits
+   write_cmd(0xa4);   // All points off
 }
 
 void LCD1202::clear_screen()
 {
-   goto_rc(0, 0);
+   memset(frame_buffer, 0, sizeof(frame_buffer));
+}
 
-   for (int i = 0; i < 16 * 6 * 9; i++) {
-      // fill DDRAM with Zeros
-      lcd_write_data(0x00);
+void LCD1202::set_point(unsigned x, unsigned y)
+{
+   if ((x < MAX_X) && (y < MAX_Y))
+   {
+      frame_buffer[y / 8][x] |= 1 << (y & 0x07);
    }
-   lcd_write_cmd(0xaf);
+}
+
+void LCD1202::clear_point(unsigned x, unsigned y)
+{
+   if ((x < MAX_X) && (y < MAX_Y))
+   {
+      frame_buffer[y / 8][x] &= ~(1 << (y & 0x07));
+   }
+}
+
+void LCD1202::update_screen()
+{
+   goto_xy(0, 0);
+
+   for (unsigned char r = 0; r < MAX_ROWS; r++) {
+      for (unsigned char c = 0; c < MAX_X; c++) {
+         write_data(frame_buffer[r][c]);
+      }
+   }
+   write_cmd(0xaf);
+}
+
+// The column positioning does not work on the LCD for some unknown reason.
+// Looking at the original code used as the base for this version, column
+// positioning was never used.
+void LCD1202::goto_xy(unsigned x, unsigned y)
+{
+   write_cmd(0xb0 | ((y) & 0x0f)); // Set page address to 'y'
+   write_cmd(0x10 | (x >> 4));     // Sets DDRAM column address - upper 3 bits
+   write_cmd(0x00 | (x & 0x0f));   // lower 4 bits
 }
 
 void LCD1202::write(unsigned r, unsigned c, const char* str)
 {
-   goto_rc(r, c);
+   int row = r >> 3;
 
    for ( ; *str; str++) {
       int d = (*str - ' ') * 5;
 
       for (int i = 0; i < 5; i++, d++) {
-         lcd_write_data(font_data[d]);
+         frame_buffer[row][c++] = font_data[d];
       }
+
+      frame_buffer[row][c++] = 0;
    }
-//   lcd_write_cmd(0xaf);
-}
-
-void LCD1202::point_on(unsigned x, unsigned y)
-{
-   goto_xy(x, y);
-   lcd_write_data(0x01);
-//   lcd_write_cmd(0xaf);
-}
-
-void LCD1202::point_off(unsigned x, unsigned y)
-{
-   goto_xy(x, y);
-   lcd_write_data(0xff);
-//   lcd_write_cmd(0xaf);
-}
-
-void LCD1202::set_pixel(unsigned, unsigned)
-{
-
-}
-
-void LCD1202::update_screen()
-{
-   lcd_write_cmd(0xaf);
 }
 
 /////////////////////////////////////////////////////////////////////////////
 // draw_line
 // Draw a line between any two absolute co-ords
 //
-void LCD1202::draw_line(int x1, int y1, int x2, int y2)
+void LCD1202::draw_line(unsigned x1, unsigned y1, unsigned x2, unsigned y2)
 {
    // Bresenham's line drawing algorithm. Originally coded on the IBM PC
    // with EGA card in 1986.
-   int x, y, d, dx, dy, i1, i2;
-   int xend, yend, xinc, yinc;
+   unsigned x, y, d, dx, dy, i1, i2;
+   unsigned xend, yend, xinc, yinc;
 
    dx = abs(x2 - x1);
    dy = abs(y2 - y1);
 
    if (((y1 > y2) && (dx < dy)) || ((x1 > x2) && (dx > dy))) {
-      int temp = y1;
+      unsigned temp = y1;
       y1 = y2;
       y2 = temp;
 
@@ -238,7 +233,7 @@ void LCD1202::draw_line(int x1, int y1, int x2, int y2)
       else
          xinc = 1;
 
-      point_on(x, y);
+      set_point(x, y);
 
       while (y < yend) {
          y++;
@@ -249,7 +244,7 @@ void LCD1202::draw_line(int x1, int y1, int x2, int y2)
             d += i2;
       }
 
-      point_on(x, y);
+      set_point(x, y);
       }
    }
    else {
@@ -273,7 +268,7 @@ void LCD1202::draw_line(int x1, int y1, int x2, int y2)
       else
          yinc = 1;
 
-      point_on(x, y);
+      set_point(x, y);
 
       while (x < xend) {
          x++;
@@ -284,7 +279,156 @@ void LCD1202::draw_line(int x1, int y1, int x2, int y2)
             d += i2;
       }
 
-      point_on(x, y);
+      set_point(x, y);
       }
    }
+}
+
+// circle --- draw a circle with edge and fill colours
+//
+//
+// Params:
+//       unsigned x0:   x coordinate
+//       unsigned y0:   y coordinate
+//       unsigned r :   Circle radius
+//       bool border:   Draw a border
+//       bool fill  :   Fill circle
+//
+// For the 1202 LCD the only valid edge and fill colours are 1 or 0, for on or off.
+// Colour is not supported.
+void LCD1202::draw_circle(int x0, int y0, int r, bool border, bool fill)
+{
+   // Michener's circle algorithm. Originally coded on the IBM PC
+   // with EGA card in 1986.
+   int x, y;
+   int d;
+
+   x = 0;
+   y = r;
+   d = 3 - (2 * r);
+
+   if (fill) {
+      while (x < y) {
+         draw_filled_circle(x0, y0, x, y, fill);
+         if (d < 0) {
+            d += (4 * x) + 6;
+         }
+         else {
+            d += (4 * (x - y)) + 10;
+            y--;
+         }
+         x++;
+      }
+
+      if (x == y)
+         draw_filled_circle(x0, y0, x, y, fill);
+   }
+
+   x = 0;
+   y = r;
+   d = 3 - (2 * r);
+
+   while (x < y) {
+      cpts8(x0, y0, x, y, border);
+      if (d < 0) {
+         d += (4 * x) + 6;
+      }
+      else {
+         d += (4 * (x - y)) + 10;
+         y--;
+      }
+      x++;
+   }
+
+   if (x == y)
+      cpts8(x0, y0, x, y, border);
+}
+
+// draw_filled_circle --- draw horizontal lines to fill a circle
+void LCD1202::draw_filled_circle(int x0, int y0, int x, int y, bool fill)
+{
+   if (fill) {
+      draw_horizontal_line(x0 - x, x0 + x, y0 + y);
+      draw_horizontal_line(x0 - x, x0 + x, y0 - y);
+      draw_horizontal_line(x0 - y, x0 + y, y0 + x);
+      draw_horizontal_line(x0 - y, x0 + y, y0 - x);
+   }
+   else {
+      clear_horizontal_line(x0 - x, x0 + x, y0 + y);
+      clear_horizontal_line(x0 - x, x0 + x, y0 - y);
+      clear_horizontal_line(x0 - y, x0 + y, y0 + x);
+      clear_horizontal_line(x0 - y, x0 + y, y0 - x);
+   }
+}
+
+// cpts8 --- draw eight pixels to form the edge of a circle
+void LCD1202::cpts8(int x0, int y0, int x, int y, bool border)
+{
+   cpts4(x0, y0, x, y, border);
+
+// if (x != y)
+   cpts4(x0, y0, y, x, border);
+}
+
+// cpts4 --- draw four pixels to form the edge of a circle
+void LCD1202::cpts4(int x0, int y0, int x, int y, bool border)
+{
+   if (border) {
+      set_point(x0 + x, y0 + y);
+
+//  if (x != 0)
+      set_point(x0 - x, y0 + y);
+
+//  if (y != 0)
+      set_point(x0 + x, y0 - y);
+
+//  if ((x != 0) && (y != 0))
+      set_point(x0 - x, y0 - y);
+   }
+   else {
+      clear_point(x0 + x, y0 + y);
+
+//  if (x != 0)
+      clear_point(x0 - x, y0 + y);
+
+//  if (y != 0)
+      clear_point(x0 + x, y0 - y);
+
+//  if ((x != 0) && (y != 0))
+      clear_point(x0 - x, y0 - y);
+   }
+}
+
+// draw_vertical_line --- draw vertical line
+void LCD1202::draw_vertical_line(unsigned x, unsigned y1, unsigned y2)
+{
+   for (unsigned y = y1; y <= y2; y++)
+      set_point(x, y);
+}
+
+// clear_vertical_line --- draw vertical line
+void LCD1202::clear_vertical_line(unsigned x, unsigned y1, unsigned y2)
+{
+   for (unsigned y = y1; y <= y2; y++)
+      clear_point(x, y);
+}
+
+// draw_horizontal_line --- set pixels in a horizontal line
+void LCD1202::draw_horizontal_line(unsigned x1, unsigned x2, unsigned y)
+{
+   unsigned row = y / 8;
+   unsigned char b = 1 << (y & 7);
+
+   for (unsigned x = x1; x <= x2; x++)
+      frame_buffer[row][x] |= b;
+}
+
+// clear_horizontal_line --- clear pixels in a horizontal line
+void LCD1202::clear_horizontal_line(unsigned x1, unsigned x2, unsigned y)
+{
+   unsigned row = y / 8;
+   unsigned char b = ~(1 << (y  & 7));
+
+   for (unsigned x = x1; x <= x2; x++)
+      frame_buffer[row][x] &= b;
 }
