@@ -33,6 +33,9 @@ public:
    virtual ~LCD1202();
    void display_info();
 
+   unsigned max_x() const { return constants::MAX_X; };
+   unsigned max_y() const { return constants::MAX_Y; };
+
    // Drawing methods
    void write(unsigned, unsigned, const char*);
    void goto_xy(unsigned, unsigned);

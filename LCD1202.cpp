@@ -27,6 +27,7 @@ LCD1202::LCD1202()
 
 LCD1202::~LCD1202()
 {
+   // Todo
 }
 
 volatile unsigned* LCD1202::get_mmap_ptr(unsigned pos, unsigned len)
