@@ -8,24 +8,15 @@ int main(int argc, char** argv)
 {
    LCD1202 lcd;
 
-   lcd.clear_screen();
-   lcd.write(3, 0, "++++++++");
-//
-//    lcd.write(5, 1, "++++++++");
-//
-//    lcd.write(7, 1, "1 + 1 = ");
-//    lcd.write(7, 4, "2");
+	// Some test strings
 
-   lcd.write(1, 0, "aaaaaaa");
-
-//    lcd.point_on(3, 3);
-//    lcd.point_on(2, 3);
-//    lcd.point_on(1, 3);
-
-   lcd.write(3, 3, "X");
-
-   lcd.update_screen();
-   //lcd.draw_line(4, 0, 6, 0);
+	lcd.xputs(" G`Day world!",    7);
+	lcd.xputs("ABCDEFGHUJKLMNOP", 5);
+	lcd.xputs("QRSTUVWXYZ~!@#$'", 4);
+	lcd.xputs("abcdefghijklmnop", 3);
+	lcd.xputs("qrstuvwxyz%^&*()", 2);
+	lcd.xputs("`1234567890_+-=/", 1);
+	lcd.xputs("[]{}|\\<>,.?",     0);
 
    return 0;
 }
