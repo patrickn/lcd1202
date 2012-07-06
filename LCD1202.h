@@ -9,9 +9,22 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-#define MAX_X 96
-#define MAX_Y 68
-#define MAX_ROWS 9 // 9 rows of bytes, last row only half used
+
+namespace constants
+{
+   // RPI constants
+   const unsigned BCM2708_PERI_BASE = 0x20000000;
+   const unsigned GPIO_BASE         = (BCM2708_PERI_BASE + 0x200000); // GPIO controller
+   const unsigned SPI_BASE          = (GPIO_BASE + 0x4000);           // SPI controller
+   const unsigned PAGE_SIZE         = (4 * 1024);
+   const unsigned BLOCK_SIZE        = (4 * 1024);
+
+   // LCD constants
+   const unsigned MAX_X = 96;
+   const unsigned MAX_Y = 68;
+   const unsigned MAX_ROWS = 9; // 9 rows of bytes, last row only half used
+}
+
 
 class LCD1202
 {
@@ -60,7 +73,10 @@ private:
 
    // I/O access
    volatile unsigned* spi;
-   unsigned char frame_buffer[MAX_ROWS][MAX_X];
+   unsigned char frame_buffer[constants::MAX_ROWS][constants::MAX_X];
+
+   // SPI Registers
+   enum {SPI_CS, SPI_FIFO, SPI_CLK, SPI_DLEN, SPI_LTOH, SPI_DC};
 };
 
 

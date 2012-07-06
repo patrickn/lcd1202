@@ -4,23 +4,14 @@
 #include "font.h"
 
 
-// Todo: Use static const here
-#define BCM2708_PERI_BASE  0x20000000
-#define GPIO_BASE          (BCM2708_PERI_BASE + 0x200000) // GPIO controller
-#define SPI_BASE           (GPIO_BASE + 0x4000)           // SPI controller
-#define PAGE_SIZE          (4 * 1024)
-#define BLOCK_SIZE         (4 * 1024)
-
 static const char* info1 = "RPi ~ LCD1202";
 static const char* info2 = version;
 static const char* info3 = "by @neavey";
 
-enum spi_regs {SPI_CS, SPI_FIFO, SPI_CLK, SPI_DLEN, SPI_LTOH, SPI_DC};
-
 
 LCD1202::LCD1202()
 {
-   spi = get_mmap_ptr(SPI_BASE, BLOCK_SIZE);
+   spi = get_mmap_ptr(constants::SPI_BASE, constants::BLOCK_SIZE);
 
    // Pi SPI Initialisation
    spi[SPI_CS] = 0x30 | 0x10000; // Clear FIFOs and all status bits
@@ -53,15 +44,15 @@ volatile unsigned* LCD1202::get_mmap_ptr(unsigned pos, unsigned len)
    // mmap GPIO
 
    // Allocate MAP block
-   if ((ptr = malloc(len + (PAGE_SIZE-1))) == NULL) {
+   if ((ptr = malloc(len + (constants::PAGE_SIZE - 1))) == NULL) {
       printf("allocation error \n");
       // Todo: Throw an exception
       exit(-1);
    }
 
    // Make sure pointer is on 4K boundary
-   if ((unsigned long)ptr % PAGE_SIZE) {
-      ptr += PAGE_SIZE - ((unsigned long)ptr % PAGE_SIZE);
+   if ((unsigned long)ptr % constants::PAGE_SIZE) {
+      ptr += constants::PAGE_SIZE - ((unsigned long)ptr % constants::PAGE_SIZE);
    }
 
    // Now map it
@@ -136,7 +127,7 @@ void LCD1202::clear_screen()
 
 void LCD1202::set_point(unsigned x, unsigned y)
 {
-   if ((x < MAX_X) && (y < MAX_Y))
+   if ((x < constants::MAX_X) && (y < constants::MAX_Y))
    {
       frame_buffer[y / 8][x] |= 1 << (y & 0x07);
    }
@@ -144,7 +135,7 @@ void LCD1202::set_point(unsigned x, unsigned y)
 
 void LCD1202::clear_point(unsigned x, unsigned y)
 {
-   if ((x < MAX_X) && (y < MAX_Y))
+   if ((x < constants::MAX_X) && (y < constants::MAX_Y))
    {
       frame_buffer[y / 8][x] &= ~(1 << (y & 0x07));
    }
@@ -154,8 +145,8 @@ void LCD1202::update_screen()
 {
    goto_xy(0, 0);
 
-   for (unsigned char r = 0; r < MAX_ROWS; r++) {
-      for (unsigned char c = 0; c < MAX_X; c++) {
+   for (unsigned char r = 0; r < constants::MAX_ROWS; r++) {
+      for (unsigned char c = 0; c < constants::MAX_X; c++) {
          write_data(frame_buffer[r][c]);
       }
    }
