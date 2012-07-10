@@ -23,6 +23,8 @@ namespace constants
    const unsigned MAX_X = 96;
    const unsigned MAX_Y = 68;
    const unsigned MAX_ROWS = 9; // 9 rows of bytes, last row only half used
+
+   const double RADTODEG = 57.29578;
 }
 
 
@@ -39,18 +41,21 @@ public:
    // Drawing methods
    void write(unsigned, unsigned, const char*);
    void goto_xy(unsigned, unsigned);
+   void set_point(unsigned, unsigned);
+   void clear_point(unsigned, unsigned);
 
    // Circles
    void draw_circle(int, int, int, bool=true, bool=false);
-   void draw_filled_circle(int, int, int, int, bool=true);
 
    // Lines
-   void draw_line(unsigned, unsigned, unsigned, unsigned);
-   void clear_line(unsigned, unsigned, unsigned, unsigned);
+   void draw_line(int, int, int, int);
+   void clear_line(int, int, int, int);
    void draw_vertical_line(unsigned, unsigned, unsigned);
    void clear_vertical_line(unsigned, unsigned, unsigned);
    void draw_horizontal_line(unsigned, unsigned, unsigned);
    void clear_horizontal_line(unsigned, unsigned, unsigned);
+
+   void draw_vector(int, int, bool=true);
 
    // Frame buffer writes
    void clear_screen();
@@ -69,10 +74,11 @@ private:
    void write_data(unsigned val){write_byte(val, false);};
 
    // Drawing methods
-   void set_point(unsigned, unsigned);
-   void clear_point(unsigned, unsigned);
    void cpts8(int, int, int, int, bool);
    void cpts4(int, int, int, int, bool);
+
+   // Circles
+   void draw_filled_circle(int, int, int, int, bool=true);
 
    // I/O access
    volatile unsigned* spi;

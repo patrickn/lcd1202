@@ -10,7 +10,7 @@ VERSION = $(shell ${GIT} describe --abbrev=4 HEAD)
 all: version lcd1202
 unittest: lcd1202test
 
-main.o: main.cpp
+main.o: main.cpp LCD1202.cpp LCD1202.h
 	g++ ${CPPFLAGS} -c main.cpp
 
 LCD1202.o: LCD1202.cpp LCD1202.h font.h

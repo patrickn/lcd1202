@@ -2,6 +2,7 @@
 #include "LCD1202.h"
 #include "version.h"
 #include "font.h"
+#include "math.h"
 
 
 static const char* info1 = "RPi ~ LCD1202";
@@ -183,18 +184,18 @@ void LCD1202::write(unsigned r, unsigned c, const char* str)
 // draw_line
 // Draw a line between any two absolute co-ords
 //
-void LCD1202::draw_line(unsigned x1, unsigned y1, unsigned x2, unsigned y2)
+void LCD1202::draw_line(int x1, int y1, int x2, int y2)
 {
    // Bresenham's line drawing algorithm. Originally coded on the IBM PC
    // with EGA card in 1986.
-   unsigned x, y, d, dx, dy, i1, i2;
-   unsigned xend, yend, xinc, yinc;
+   int x, y, d, dx, dy, i1, i2;
+   int xend, yend, xinc, yinc;
 
    dx = abs(x2 - x1);
    dy = abs(y2 - y1);
 
    if (((y1 > y2) && (dx < dy)) || ((x1 > x2) && (dx > dy))) {
-      unsigned temp = y1;
+      int temp = y1;
       y1 = y2;
       y2 = temp;
 
@@ -272,6 +273,103 @@ void LCD1202::draw_line(unsigned x1, unsigned y1, unsigned x2, unsigned y2)
       }
 
       set_point(x, y);
+      }
+   }
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// draw_line
+// Draw a line between any two absolute co-ords
+//
+void LCD1202::clear_line(int x1, int y1, int x2, int y2)
+{
+   // Bresenham's line drawing algorithm. Originally coded on the IBM PC
+   // with EGA card in 1986.
+   int x, y, d, dx, dy, i1, i2;
+   int xend, yend, xinc, yinc;
+
+   dx = abs(x2 - x1);
+   dy = abs(y2 - y1);
+
+   if (((y1 > y2) && (dx < dy)) || ((x1 > x2) && (dx > dy))) {
+      int temp = y1;
+      y1 = y2;
+      y2 = temp;
+
+      temp = x1;
+      x1 = x2;
+      x2 = temp;
+   }
+
+   if (dy > dx) {
+      d = (2 * dx) - dy;     /* Slope > 1 */
+      i1 = 2 * dx;
+      i2 = 2 * (dx - dy);
+
+      if (y1 > y2) {
+         x = x2;
+         y = y2;
+         yend = y1;
+      }
+      else
+      {
+         x = x1;
+         y = y1;
+         yend = y2;
+      }
+
+      if (x1 > x2)
+         xinc = -1;
+      else
+         xinc = 1;
+
+      clear_point(x, y);
+
+      while (y < yend) {
+         y++;
+         if (d < 0)
+            d += i1;
+         else {
+            x += xinc;
+            d += i2;
+      }
+
+      clear_point(x, y);
+      }
+   }
+   else {
+      d = (2 * dy) - dx;  /* Slope < 1 */
+      i1 = 2 * dy;
+      i2 = 2 * (dy - dx);
+
+      if (x1 > x2) {
+         x = x2;
+         y = y2;
+         xend = x1;
+      }
+      else {
+         x = x1;
+         y = y1;
+         xend = x2;
+      }
+
+      if (y1 > y2)
+         yinc = -1;
+      else
+         yinc = 1;
+
+      clear_point(x, y);
+
+      while (x < xend) {
+         x++;
+         if (d < 0)
+            d += i1;
+         else {
+            y += yinc;
+            d += i2;
+      }
+
+      clear_point(x, y);
       }
    }
 }
@@ -423,4 +521,16 @@ void LCD1202::clear_horizontal_line(unsigned x1, unsigned x2, unsigned y)
 
    for (unsigned x = x1; x <= x2; x++)
       frame_buffer[row][x] &= b;
+}
+
+void LCD1202::draw_vector(int r, int length, bool fill)
+{
+   // 252us
+   int x = (length * cos((double)r / constants::RADTODEG)) + 0.49;
+   int y = (length * sin((double)r / constants::RADTODEG)) + 0.49;
+
+   if (fill)
+      draw_line(max_x() / 2, max_y() / 2, (max_x() / 2) + x, (max_y() / 2) + y);
+   else
+      clear_line(max_x() / 2, max_y() / 2, (max_x() / 2) + x, (max_y() / 2) + y);
 }
